@@ -17,6 +17,7 @@ Ordre recommandé :
 09_PR10_RESTORE_TEST.md
 10_PR11_EMAIL_REPORTS.md
 11_PR12_COVERAGE_AUDIT.md
+12_PR13_DB_WIZARD_DUMPS.md
 ```
 
 Règles d'utilisation :
