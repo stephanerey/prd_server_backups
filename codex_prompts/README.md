@@ -14,6 +14,7 @@ Ordre recommandé :
 07_PR08_BACKUP_MULTI_TARGET.md
 08_PR09_RETENTION_PRUNE.md
 09_PR10_RESTORE_TEST.md
+10_PR11_EMAIL_REPORTS.md
 ```
 
 Règles d'utilisation :
