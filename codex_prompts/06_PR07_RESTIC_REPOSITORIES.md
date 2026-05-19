@@ -1,4 +1,4 @@
-# Prompt Codex — PR7 init/check repositories
+# Prompt Codex — PR7 init/check repositories avec verrouillage restic
 
 ```text
 Tu travailles dans le dépôt :
@@ -58,7 +58,7 @@ Objectif de cette PR :
 
 Implémenter uniquement :
 
-PR7 — init/check repositories
+PR7 — init/check repositories avec verrouillage local
 
 Objectif :
 - implémenter server-backup repo init <target>
@@ -67,6 +67,7 @@ Objectif :
 - utiliser restic avec les targets SFTP configurées
 - vérifier que les credentials restic sont présents
 - vérifier que la target est valide
+- empêcher deux commandes restic/server-backup repo de tourner en parallèle
 - ne pas encore faire de backup réel
 - ne pas encore faire de prune
 - ne pas encore faire de restore test
@@ -81,8 +82,6 @@ Ne pas implémenter encore :
 - restore test réel
 - email réel
 
-Ces fonctionnalités viendront dans les PR suivantes.
-
 Contraintes générales :
 - pas de dépendance Python externe
 - ne jamais stocker de secrets dans Git
@@ -95,6 +94,37 @@ Contraintes générales :
 - le système tourne sur l’hôte Linux, pas dans Docker
 - backend MVP : SFTP uniquement
 - fichiers de config éditables à la main
+
+Point critique de fiabilité : verrouillage local
+
+Problème réel observé : deux commandes repo ont été lancées en parallèle pendant les tests :
+- server-backup repo init nas-steph
+- server-backup repo init --all
+
+Cela a rendu le dépôt distant illisible avec une erreur restic du type :
+
+Fatal: config or key ... is damaged: ciphertext verification failed
+
+Donc PR7 doit obligatoirement ajouter un verrou local autour de toute commande restic repo.
+
+Exigences du lock :
+- utiliser uniquement la standard library Python ;
+- utiliser fcntl.flock sous Linux ;
+- lock file recommandé : /run/server-backup-repo.lock ;
+- fallback vers /tmp/server-backup-repo.lock si /run n’est pas accessible ;
+- le lock doit être acquis avant toute commande restic ;
+- le lock doit couvrir au minimum : repo init, repo check, repo snapshots ;
+- le lock doit être libéré proprement même en cas d’erreur ;
+- ne pas bloquer indéfiniment ;
+- timeout recommandé : 30 secondes ;
+- si le lock est déjà détenu, afficher un message clair et sortir avec code non nul ;
+- documenter le comportement.
+
+Message attendu en cas de verrou déjà pris, par exemple :
+
+Another server-backup restic operation is already running. Lock file: /run/server-backup-repo.lock
+
+Cette protection est obligatoire avant PR8, car PR8 lancera les backups réels.
 
 Point important restic + SSH config isolée :
 Les targets SFTP utilisent une configuration SSH dédiée :
@@ -126,7 +156,6 @@ Livrables attendus :
 Créer un module dédié restic.
 
 Fonctions attendues :
-
 - build_restic_env(global_config, target)
 - build_sftp_command(target)
 - build_restic_base_command(target)
@@ -138,6 +167,13 @@ Fonctions attendues :
 - select_target(name, targets)
 - require_restic_available()
 - validate_restic_preflight(global_config, target)
+- acquire_repo_lock(timeout_seconds=30)
+- release_repo_lock()
+
+Une implémentation context manager est préférable, par exemple :
+
+with restic_repo_lock(timeout_seconds=30):
+    run_restic_command(...)
 
 Utiliser subprocess.run avec shell=False.
 
@@ -149,7 +185,6 @@ Ne jamais logger :
 2. Préflight restic
 
 Avant toute commande restic, vérifier :
-
 - restic est disponible dans PATH
 - target existe
 - target est valide via validate_target_config()
@@ -176,19 +211,16 @@ Commande :
 sudo server-backup repo init nas-steph
 
 Elle doit :
-
 - charger backup.conf
 - charger targets
 - sélectionner la target par TARGET_NAME
 - faire les validations préflight
+- acquérir le lock local avant toute commande restic
 - vérifier si le dépôt semble déjà initialisé
-- si déjà initialisé :
-  - afficher "Repository already initialized"
-  - retourner 0
-- sinon :
-  - exécuter restic init
-  - afficher un résultat clair
-  - ne jamais afficher le mot de passe
+- si déjà initialisé : afficher "Repository already initialized" et retourner 0
+- sinon : exécuter restic init
+- afficher un résultat clair
+- ne jamais afficher le mot de passe
 
 Détection dépôt déjà initialisé :
 - essayer une commande non destructive du type restic snapshots ou restic cat config
@@ -207,9 +239,9 @@ Commande :
 sudo server-backup repo check nas-steph
 
 Elle doit :
-
 - charger config et target
 - vérifier préflight
+- acquérir le lock local
 - exécuter restic check
 - afficher résultat clair
 - retourner code 0 si OK
@@ -228,9 +260,9 @@ Commande :
 sudo server-backup repo snapshots nas-steph
 
 Elle doit :
-
 - charger config et target
 - vérifier préflight
+- acquérir le lock local
 - exécuter restic snapshots
 - afficher la sortie restic
 - retourner code non nul si erreur
@@ -246,10 +278,11 @@ sudo server-backup repo check --all
 sudo server-backup repo snapshots --all
 
 Comportement :
-- parcourir toutes les targets
-- tenter chaque target même si une échoue
-- afficher résultat par target
-- code retour global non nul si au moins une target échoue
+- acquérir un seul lock global pour toute l’opération --all ;
+- parcourir toutes les targets ;
+- tenter chaque target même si une échoue ;
+- afficher résultat par target ;
+- code retour global non nul si au moins une target échoue.
 
 Si aucune target :
 - message clair
@@ -260,7 +293,6 @@ Si aucune target :
 Mettre à jour server_backup/cli.py.
 
 Commandes attendues :
-
 - server-backup repo init <target>
 - server-backup repo init --all
 - server-backup repo check <target>
@@ -277,7 +309,6 @@ server-backup status doit rester rapide.
 Ne pas lancer restic automatiquement dans status.
 
 Mais status peut afficher pour chaque target :
-
 - TARGET_NAME
 - TARGET_TYPE
 - RESTIC_REPOSITORY redacted si nécessaire
@@ -319,25 +350,26 @@ Cas à gérer clairement :
 - permission denied sur RESTIC_PASSWORD_FILE
 - repository not initialized
 - repository already initialized
+- repository metadata damaged or unreadable with current password
 - SSH host key missing
 - SSH authentication failed
 - DNS failure
 - SFTP failure
 - NAS unreachable
 - bad password
+- lock already held by another server-backup process
 
 11. Tests unitaires
 
 Ajouter ou compléter :
-
 - tests/test_restic_helpers.py
 - tests/test_repo_cli.py si pertinent
+- tests/test_restic_lock.py
 
 Ne pas faire de vrai réseau.
 Ne pas lancer de vrai restic si possible dans les tests unitaires.
 
 Tester au minimum :
-
 - build_sftp_command génère ssh -F <config> <alias> -s sftp
 - build_restic_env contient RESTIC_REPOSITORY
 - build_restic_env contient RESTIC_PASSWORD_FILE mais le contenu n’est jamais lu
@@ -348,6 +380,9 @@ Tester au minimum :
 - validate_restic_preflight détecte SSH config absent
 - les commandes sont construites avec shell=False
 - redaction ne montre pas de secret
+- le lock peut être acquis une première fois
+- une seconde acquisition concurrente échoue proprement
+- le lock est libéré après sortie du context manager
 
 Pour tester run_restic_command, utiliser mocking standard library unittest.mock.
 
@@ -369,10 +404,9 @@ Expliquer :
 - target test doit réussir avant repo init
 - restic-password doit exister
 - repo init ne lance aucun backup
+- les commandes repo sont protégées par un lock local pour éviter les exécutions concurrentes
 
 Mettre à jour docs/CONFIG_REFERENCE.md :
-
-Documenter :
 - champs utilisés par restic
 - RESTIC_REPOSITORY
 - RESTIC_PASSWORD_FILE
@@ -380,18 +414,15 @@ Documenter :
 - SSH_CONFIG_FILE
 - SSH_HOST_ALIAS
 - option interne sftp.command
+- lock file /run/server-backup-repo.lock avec fallback /tmp/server-backup-repo.lock
 
 Mettre à jour docs/NAS_SFTP_TARGET.md :
-
-Ajouter :
 - après installation clé publique côté NAS :
   sudo server-backup target test <target>
   sudo server-backup repo init <target>
   sudo server-backup repo check <target>
 
 Mettre à jour docs/RESTORE_KIT.md :
-
-Ajouter :
 - le restore kit doit contenir les informations nécessaires pour retrouver le dépôt restic
 - target name
 - RESTIC_REPOSITORY
@@ -409,6 +440,7 @@ Ce document doit expliquer :
 - check
 - snapshots
 - --all
+- verrouillage local des commandes restic
 - erreurs fréquentes
 - sécurité du mot de passe restic
 - le fait que repo init ne fait pas de backup
@@ -431,9 +463,10 @@ Ce document doit expliquer :
 - aucun backup réel n’est lancé
 - aucun prune n’est lancé
 - aucun fichier de production n’est modifié hors config attendue
+- une seconde commande repo lancée pendant qu’une première détient le lock échoue proprement
+- plus aucune commande restic repo ne peut tourner en parallèle localement
 
 Tests à exécuter :
-
 - python3 -m unittest discover -s tests
 - python3 -m server_backup.cli --help
 - python3 -m server_backup.cli repo --help
@@ -445,16 +478,19 @@ Tests à exécuter :
 - sudo server-backup repo check --all
 
 Comme une vraie target NAS est disponible, exécuter aussi :
-
 - sudo server-backup target test nas-steph
 - sudo server-backup repo init nas-steph
 - sudo server-backup repo snapshots nas-steph
 - sudo server-backup repo check nas-steph
 
+Tester aussi le verrouillage :
+- lancer une commande repo longue ou simulée qui détient le lock ;
+- lancer une deuxième commande repo en parallèle ;
+- vérifier que la deuxième échoue proprement avec message clair.
+
 Ne pas inventer de succès réseau : si une commande échoue, fournir la sortie et l’analyse.
 
 À la fin, fournir :
-
 - résumé des fichiers créés/modifiés
 - commandes de test exécutées
 - résultats des tests
