@@ -15,6 +15,7 @@ Ordre recommandé :
 08_PR09_RETENTION_PRUNE.md
 09_PR10_RESTORE_TEST.md
 10_PR11_EMAIL_REPORTS.md
+11_PR12_COVERAGE_AUDIT.md
 ```
 
 Règles d'utilisation :
