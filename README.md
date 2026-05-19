@@ -8,8 +8,9 @@ Le but est de permettre à Codex d'implémenter un template réutilisable sur pl
 - stockage distant sur un ou plusieurs NAS ;
 - configuration interactive via wizard ;
 - support Docker, Docker Compose, PostgreSQL, MariaDB/MySQL ;
+- support des sites web critiques, dont les sites réalisés avec CIS ;
 - audit de couverture pour éviter les oublis ;
-- tests de restauration ;
+- tests de restauration non destructifs ;
 - rapports email après chaque backup.
 
 > État du dépôt : ce dépôt est le PRD. Il ne contient pas encore l'implémentation finale. Codex doit lire `PRD.md` puis les addendums, et implémenter les PR dans l'ordre.
@@ -18,33 +19,39 @@ Le but est de permettre à Codex d'implémenter un template réutilisable sur pl
 
 ## 1. Documents du PRD
 
-Documents principaux :
-
 ```text
 PRD.md
 PRD_DOCKER_ADDENDUM.md
 PRD_SITE_CONTENT_ADDENDUM.md
+PRD_CIS_GENERIC_ADDENDUM.md
 PRD_COVERAGE_AND_RESTORE_STRATEGY_ADDENDUM.md
 PRD_DATABASE_CONNECTION_AND_SCOPE_ADDENDUM.md
+PRD_RESTORE_TEST_ADDENDUM.md
 ```
 
 Rôle des documents :
 
 ```text
 PRD.md
-  Spécification générale du système : restic, targets, profiles, wizard, systemd, email.
+  Spécification générale : restic, targets, profiles, wizard, systemd, email.
 
 PRD_DOCKER_ADDENDUM.md
   Sauvegarde des serveurs Docker : Compose, volumes, bind mounts, inventaire Docker, dumps DB Docker.
 
 PRD_SITE_CONTENT_ADDENDUM.md
-  Sauvegarde du contenu réel des sites web, notamment CIS : pages, uploads, médias, contenu DB.
+  Sauvegarde du contenu réel des sites web : pages, uploads, médias, contenu DB.
+
+PRD_CIS_GENERIC_ADDENDUM.md
+  Couverture générique des sites web réalisés avec CIS.
 
 PRD_COVERAGE_AND_RESTORE_STRATEGY_ADDENDUM.md
-  Audit de couverture, comparaison avec les snapshots OVH, stratégie de restauration.
+  Audit de couverture, comparaison avec les snapshots provider, stratégie de restauration.
 
 PRD_DATABASE_CONNECTION_AND_SCOPE_ADDENDUM.md
   Connexion aux bases, wizard DB, périmètre exact des dumps PostgreSQL/MariaDB/MySQL.
+
+PRD_RESTORE_TEST_ADDENDUM.md
+  Comportement exact du test de restauration non destructif.
 ```
 
 ---
@@ -70,7 +77,7 @@ Serveur Linux
 
 Chaque destination doit avoir son propre dépôt `restic` indépendant.
 
-Exemple :
+Exemple côté NAS :
 
 ```text
 /backups/
@@ -215,20 +222,18 @@ volumes ou bind mounts associés
 base de données associée
 ```
 
-Le wizard doit demander explicitement où est stocké le contenu.
-
-Cas possibles :
+Pour un site réalisé avec CIS, le wizard doit traiter le cas générique suivant :
 
 ```text
-Pages stockées en PostgreSQL
-  → dump PostgreSQL obligatoire.
-
-Pages stockées en fichiers
-  → chemins content/uploads/media/etc. ajoutés à BACKUP_PATHS.
-
-Pages stockées en DB + fichiers
-  → dump DB + chemins fichiers.
+contenu builder/CMS en PostgreSQL
+blocs structurés en JSON/JSONB
+backend/API nécessaire au rendu
+frontend/composants React ou Next.js nécessaires au rendu
+pages publiques éventuellement codées en dur
+médias/uploads/assets éventuellement stockés en fichiers
 ```
+
+Conséquence : pour un site CIS, il faut sauvegarder **DB + code + config + volumes/médias éventuels**.
 
 ### 3.6 Rapports, logs et état
 
@@ -240,6 +245,7 @@ Le système doit conserver :
 /var/lib/server-backup/state
 inventaires Docker
 audits de couverture
+rapports de restore test
 dernier test de restauration réussi
 ```
 
@@ -283,15 +289,15 @@ un clone bit-à-bit du VPS
 
 ---
 
-## 5. Pourquoi garder OVH Premium Backup en plus
+## 5. Pourquoi garder un backup provider en plus
 
-Le backup OVH et le backup restic n'ont pas le même rôle.
+Le backup provider, par exemple OVH Premium Backup, et le backup restic n'ont pas le même rôle.
 
 ```text
-OVH Premium Backup 7j
+Backup provider image/snapshot
   Usage : rollback rapide du serveur complet.
   Avantage : retour arrière simple, court terme.
-  Limite : dépendant OVH, rétention courte, restauration all-or-nothing.
+  Limite : dépendant provider, rétention courte, restauration all-or-nothing.
 
 Backup applicatif restic
   Usage : restauration portable, granulaire, long terme.
@@ -299,10 +305,10 @@ Backup applicatif restic
   Limite : demande une procédure de restauration testée.
 ```
 
-La stratégie recommandée :
+Stratégie recommandée :
 
 ```text
-1. OVH Premium Backup
+1. Backup provider
    → bouton rollback rapide.
 
 2. Restic vers NAS
@@ -312,7 +318,7 @@ La stratégie recommandée :
    → vérifie qu'on n'oublie pas un volume, une DB ou un contenu web.
 
 4. Restore test régulier
-   → vérifie que la restauration fonctionne vraiment.
+   → vérifie que les backups sont exploitables.
 ```
 
 ---
@@ -451,7 +457,165 @@ mariadb-dump \
 
 ---
 
-## 8. Prérequis côté serveur source
+## 8. Restore test : ce qu'il fait exactement
+
+Le restore test est un test non destructif. Il ne restaure jamais directement dans les chemins de production.
+
+Commande minimale :
+
+```bash
+sudo server-backup restore test --target nas-home
+```
+
+Options prévues :
+
+```bash
+sudo server-backup restore test --target nas-home --snapshot latest
+sudo server-backup restore test --target nas-home --profile docker-host
+sudo server-backup restore test --target nas-home --include /srv/cis
+sudo server-backup restore test --target nas-home --keep-output
+sudo server-backup restore test --target nas-home --output-dir /tmp/restore-test
+```
+
+### 8.1 Ce que le restore test fait
+
+```text
+1. charge backup.conf ;
+2. charge la target demandée ;
+3. vérifie que le dépôt restic est joignable ;
+4. vérifie que le mot de passe restic fonctionne ;
+5. liste les snapshots ;
+6. sélectionne latest ou le snapshot demandé ;
+7. crée un répertoire temporaire ;
+8. restaure le snapshot ou les chemins demandés avec restic restore ;
+9. vérifie que des fichiers ont été restaurés ;
+10. vérifie la présence des fichiers critiques selon les profiles ;
+11. vérifie les dumps DB restaurés ;
+12. vérifie les fichiers Docker/CIS critiques si applicable ;
+13. produit un rapport lisible ;
+14. enregistre la date du dernier test réussi ;
+15. retourne un code non nul si le test échoue.
+```
+
+Répertoire temporaire par défaut :
+
+```text
+/tmp/server-backup-restore-test-YYYYMMDD-HHMMSS
+```
+
+Rapports attendus :
+
+```text
+/var/lib/server-backup/state/restore-test-YYYYMMDD-HHMMSS.txt
+/var/lib/server-backup/state/restore-test-YYYYMMDD-HHMMSS.json
+/var/lib/server-backup/state/last-restore-test.json
+```
+
+### 8.2 Vérifications minimales
+
+```text
+accès au dépôt restic
+mot de passe restic valide
+snapshot présent
+restauration possible dans /tmp
+fichiers restaurés non vides
+présence des chemins critiques attendus
+présence des dumps DB attendus
+```
+
+### 8.3 Vérifications Docker
+
+Pour un profil Docker, le test doit vérifier si présents :
+
+```text
+compose.yml ou docker-compose.yml
+.env déclarés ou explicitement exclus
+répertoires /srv ou /opt attendus
+inventaire Docker restauré
+volumes/bind mounts sauvegardés selon configuration
+```
+
+Le test ne lance pas `docker compose up -d` par défaut.
+
+### 8.4 Vérifications DB
+
+Pour PostgreSQL au format custom, le test doit utiliser si possible :
+
+```bash
+pg_restore --list <dump_file>
+```
+
+Pour PostgreSQL dump SQL, `pg_dumpall`, MariaDB ou MySQL, le test doit au minimum vérifier :
+
+```text
+fichier non vide
+présence de statements SQL attendus
+taille cohérente
+```
+
+Le test ne restaure jamais le dump dans la base de production.
+
+### 8.5 Vérifications CIS
+
+Pour un profil `APP_KIND="cis-site"`, le test doit vérifier :
+
+```text
+backend présent
+frontend présent
+migrations présentes, ex. alembic ou migrations
+compose.yml/docker-compose.yml présent
+.env présent ou explicitement exclu
+media/uploads/assets classifiés
+dump PostgreSQL présent
+table de pages attendue déclarée dans le rapport
+```
+
+Si le dump PostgreSQL est au format custom, `pg_restore --list` doit permettre de vérifier la présence probable des tables critiques configurées, par exemple `site_pages`.
+
+### 8.6 Ce que le restore test ne prouve pas
+
+Le restore test standard ne prouve pas à lui seul :
+
+```text
+qu'un serveur vierge peut redémarrer tous les services
+que Docker Compose relance correctement toutes les stacks
+que PostgreSQL restaure correctement dans une instance neuve
+que DNS, certificats et reverse proxy fonctionnent
+que les pages web sont visuellement correctes
+que les secrets externes sont disponibles
+```
+
+Pour valider tout cela, il faut un test de restauration complet sur serveur de staging ou VM temporaire.
+
+### 8.7 Niveaux de test recommandés
+
+```text
+Niveau 1 — Restore smoke test quotidien ou hebdomadaire
+  - accès restic
+  - restore partiel
+  - présence de fichiers critiques
+  - vérification basique des dumps
+
+Niveau 2 — Restore test mensuel
+  - restauration plus large dans /tmp
+  - vérification Docker/CIS
+  - vérification pg_restore --list
+  - rapport enregistré
+
+Niveau 3 — Disaster restore rehearsal trimestriel
+  - serveur vierge ou VM temporaire
+  - réinstallation Docker
+  - restauration fichiers
+  - restauration DB dans une instance neuve
+  - docker compose up -d
+  - tests HTTP/API/site
+```
+
+Le niveau 3 est le seul qui valide réellement la capacité à reconstruire complètement le service.
+
+---
+
+## 9. Prérequis côté serveur source
 
 Serveur cible recommandé :
 
@@ -480,7 +644,7 @@ sudo apt install -y \
 
 Selon le serveur, `mysql-client` peut remplacer `mariadb-client`.
 
-### 8.1 Prérequis DB
+### 9.1 Prérequis DB
 
 Pour chaque DB critique, il faut connaître :
 
@@ -516,7 +680,7 @@ sudo chmod 600 /etc/server-backup/secrets/db/cis/postgres.env
 sudo chown root:root /etc/server-backup/secrets/db/cis/postgres.env
 ```
 
-### 8.2 Prérequis SMTP
+### 9.2 Prérequis SMTP
 
 Le système de backup n'implémente pas la configuration SMTP complète.
 
@@ -562,7 +726,7 @@ commande : sendmail ou mail
 
 ---
 
-## 9. Prérequis côté NAS distant
+## 10. Prérequis côté NAS distant
 
 Le stockage distant doit être générique. Il peut être :
 
@@ -611,12 +775,6 @@ Chemin recommandé par serveur :
 /backups/<server-name>/restic
 ```
 
-Exemple :
-
-```text
-/backups/pyparfums-prod/restic
-```
-
 Sécurité recommandée :
 
 ```text
@@ -630,9 +788,9 @@ snapshots Btrfs/ZFS côté NAS si possible
 
 ---
 
-## 10. Préparation NAS OMV
+## 11. Préparation NAS OMV
 
-### 10.1 Shared folder
+### 11.1 Shared folder
 
 Dans OMV :
 
@@ -659,7 +817,7 @@ Le dépôt restic sera par exemple :
 /srv/dev-disk-by-uuid-XXXX/backups/pyparfums-prod/restic
 ```
 
-### 10.2 Utilisateur dédié
+### 11.2 Utilisateur dédié
 
 Dans OMV :
 
@@ -681,7 +839,7 @@ aucun droit admin
 aucun accès aux autres partages
 ```
 
-### 10.3 SSH/SFTP
+### 11.3 SSH/SFTP
 
 Dans OMV :
 
@@ -700,7 +858,7 @@ Password authentication : no après validation des clés
 
 Pendant le premier test, le mot de passe peut rester activé temporairement. L'objectif final est clé SSH uniquement.
 
-### 10.4 Clé publique
+### 11.4 Clé publique
 
 Le wizard côté serveur générera une clé publique à copier dans le compte NAS.
 
@@ -718,7 +876,7 @@ Restriction recommandée dans `authorized_keys` :
 from="IP_PUBLIQUE_DU_SERVEUR",no-agent-forwarding,no-X11-forwarding,no-port-forwarding,no-pty ssh-ed25519 AAAA...
 ```
 
-### 10.5 Snapshots locaux OMV
+### 11.5 Snapshots locaux OMV
 
 Si le filesystem OMV le permet, activer des snapshots locaux du dossier backup.
 
@@ -726,9 +884,9 @@ But : protéger le dépôt restic contre une suppression malveillante ou acciden
 
 ---
 
-## 11. Préparation NAS Synology
+## 12. Préparation NAS Synology
 
-### 11.1 Dossier partagé
+### 12.1 Dossier partagé
 
 Dans DSM :
 
@@ -749,7 +907,7 @@ Chemin SFTP typique selon configuration :
 /volume1/backups/pyparfums-prod/restic
 ```
 
-### 11.2 Utilisateur dédié
+### 12.2 Utilisateur dédié
 
 Dans DSM :
 
@@ -771,7 +929,7 @@ No access sur les autres dossiers
 pas de permission admin
 ```
 
-### 11.3 Activer SSH
+### 12.3 Activer SSH
 
 Dans DSM :
 
@@ -787,7 +945,7 @@ clé SSH uniquement si possible
 restriction IP via firewall Synology
 ```
 
-### 11.4 Clé SSH
+### 12.4 Clé SSH
 
 Copier la clé publique générée par le wizard dans :
 
@@ -802,7 +960,7 @@ chmod 700 ~/.ssh
 chmod 600 ~/.ssh/authorized_keys
 ```
 
-### 11.5 Snapshots Synology
+### 12.5 Snapshots Synology
 
 Si le paquet Snapshot Replication est disponible, activer des snapshots du dossier `backups`.
 
@@ -818,7 +976,7 @@ snapshots hebdomadaires sur 8 semaines
 
 ---
 
-## 12. Accès réseau NAS
+## 13. Accès réseau NAS
 
 Deux options.
 
@@ -873,7 +1031,7 @@ surveiller les logs SSH
 
 ---
 
-## 13. Installation prévue sur un serveur source
+## 14. Installation prévue sur un serveur source
 
 > Cette section décrit la procédure attendue après implémentation par Codex.
 
@@ -919,9 +1077,9 @@ Permissions attendues :
 
 ---
 
-## 14. Configuration avec le wizard
+## 15. Configuration avec le wizard
 
-### 14.1 Configuration globale
+### 15.1 Configuration globale
 
 Commande :
 
@@ -980,7 +1138,7 @@ EMAIL_REPORT_SEND_ON_FAILURE="true"
 EMAIL_REPORT_COMMAND="sendmail"
 ```
 
-### 14.2 Ajout d'une destination NAS
+### 15.2 Ajout d'une destination NAS
 
 Commande :
 
@@ -1021,7 +1179,7 @@ RESTIC_PASSWORD_FILE="/etc/server-backup/secrets/restic-password"
 RESTIC_CACHE_DIR="/var/cache/restic"
 ```
 
-Test :
+Tests :
 
 ```bash
 sudo server-backup target test nas-home
@@ -1029,7 +1187,7 @@ sudo server-backup repo init nas-home
 sudo server-backup repo check nas-home
 ```
 
-### 14.3 Ajout d'un profil Docker host
+### 15.3 Ajout d'un profil Docker host
 
 Commande :
 
@@ -1082,18 +1240,53 @@ EXCLUDES=(
 DOCKER_INVENTORY="true"
 ```
 
-### 14.4 Configuration DB via wizard
+### 15.4 Profil générique CIS
+
+Commande prévue :
+
+```bash
+sudo server-backup profile add --type cis-site
+```
+
+Questions attendues :
+
+```text
+nom logique du site CIS
+chemin du projet CIS
+chemin du compose.yml/docker-compose.yml
+chemin du fichier .env
+nom du conteneur backend
+nom du conteneur frontend
+nom du conteneur PostgreSQL
+nom de la base PostgreSQL
+utilisateur PostgreSQL
+secret PGPASSWORD à créer ou fichier existant
+table de pages attendue, site_pages par défaut
+médias/uploads locaux ou stockage externe
+volumes et bind mounts à inclure
+tester connexion DB
+tester dump DB
+```
+
+Exemple de classification :
+
+```bash
+APP_KIND="cis-site"
+WEB_CONTENT_CRITICAL="true"
+
+CONTENT_CLASSIFICATION=(
+  "db:postgresql:<cis_database>:site_pages:builder-pages"
+  "files:/srv/<cis_project>/frontend:frontend-renderer-and-routes"
+  "files:/srv/<cis_project>/backend:api-models-and-migrations"
+)
+```
+
+### 15.5 Configuration DB via wizard
 
 Commande prévue :
 
 ```bash
 sudo server-backup db add
-```
-
-ou via :
-
-```bash
-sudo server-backup profile add --type docker-host
 ```
 
 Questions attendues :
@@ -1135,9 +1328,9 @@ sudo server-backup db dump-test cis-postgres
 
 ---
 
-## 15. Utilisation quotidienne
+## 16. Utilisation quotidienne
 
-### 15.1 Lancer un backup manuel
+### 16.1 Lancer un backup manuel
 
 ```bash
 sudo server-backup backup run
@@ -1149,27 +1342,27 @@ ou directement :
 sudo systemctl start server-backup.service
 ```
 
-### 15.2 Voir les logs
+### 16.2 Voir les logs
 
 ```bash
 sudo journalctl -u server-backup.service -n 200 --no-pager
 sudo tail -n 200 /var/log/server-backup.log
 ```
 
-### 15.3 Vérifier le timer
+### 16.3 Vérifier le timer
 
 ```bash
 sudo systemctl status server-backup.timer
 sudo systemctl list-timers | grep server-backup
 ```
 
-### 15.4 Lancer un audit de couverture
+### 16.4 Lancer un audit de couverture
 
 ```bash
 sudo server-backup coverage audit
 ```
 
-### 15.5 Vérifier les snapshots restic
+### 16.5 Vérifier les snapshots restic
 
 ```bash
 sudo server-backup repo check nas-home
@@ -1184,29 +1377,17 @@ restic snapshots
 restic check
 ```
 
-### 15.6 Test de restauration
+### 16.6 Test de restauration non destructif
 
 ```bash
 sudo server-backup restore test --target nas-home
 ```
 
-Le test doit restaurer dans un répertoire temporaire :
-
-```text
-/tmp/server-backup-restore-test-XXXX
-```
-
-Il ne doit rien écraser.
-
-Le système doit enregistrer le dernier test réussi dans :
-
-```text
-/var/lib/server-backup/state/last-restore-test.json
-```
+Le test restaure dans `/tmp/server-backup-restore-test-*`, vérifie les fichiers et dumps critiques, puis enregistre le résultat dans `/var/lib/server-backup/state`.
 
 ---
 
-## 16. Rapport email
+## 17. Rapport email
 
 À la fin de chaque backup, si activé, le système doit envoyer un rapport.
 
@@ -1236,6 +1417,7 @@ résultat coverage audit
 warnings de couverture
 chemin du log local
 dernier restore test réussi
+âge du dernier restore test
 commandes utiles de diagnostic
 ```
 
@@ -1251,7 +1433,7 @@ secrets applicatifs
 
 ---
 
-## 17. Restauration — principe
+## 18. Restauration complète — principe
 
 La restauration complète d'un serveur Docker doit suivre ce flux :
 
@@ -1284,7 +1466,7 @@ Une restauration destructive ne doit jamais être lancée sans confirmation expl
 
 ---
 
-## 18. Sécurité
+## 19. Sécurité
 
 Principes obligatoires :
 
@@ -1314,7 +1496,7 @@ utilisateur SFTP sans shell interactif si possible
 
 ---
 
-## 19. Roadmap PR pour Codex
+## 20. Roadmap PR pour Codex
 
 Plan principal :
 
@@ -1349,16 +1531,17 @@ PR22 Profil system-filesystem
 PR23 Restore readiness tracking
 PR24 Disaster restore plan
 PR25 Database connection wizard and DB dump scope
+PR26 Generic CIS site backup profile
 ```
 
 ---
 
-## 20. Checklist avant premier déploiement
+## 21. Checklist avant premier déploiement
 
 ### Serveur source
 
 ```text
-[ ] OVH Premium Backup activé si serveur OVH
+[ ] Backup provider activé si disponible, ex. OVH Premium Backup
 [ ] Docker fonctionne
 [ ] Docker Compose fonctionne
 [ ] chemins applicatifs connus : /srv, /opt, etc.
@@ -1389,7 +1572,8 @@ PR25 Database connection wizard and DB dump scope
 [ ] target NAS ajoutée
 [ ] restic init OK
 [ ] profile docker-host créé
-[ ] CIS marqué comme service critique si présent
+[ ] profile cis-site créé si site CIS présent
+[ ] service web critique classifié
 [ ] volumes Docker critiques inclus
 [ ] bind mounts critiques inclus
 [ ] dumps DB configurés
@@ -1402,7 +1586,7 @@ PR25 Database connection wizard and DB dump scope
 
 ---
 
-## 21. Commandes attendues du projet final
+## 22. Commandes attendues du projet final
 
 ```bash
 sudo server-backup setup
@@ -1418,6 +1602,7 @@ sudo server-backup docker scan
 sudo server-backup docker inventory
 
 sudo server-backup profile add --type docker-host
+sudo server-backup profile add --type cis-site
 sudo server-backup profile add --type system-filesystem
 
 sudo server-backup db add
@@ -1436,7 +1621,7 @@ sudo journalctl -u server-backup.service -n 200 --no-pager
 
 ---
 
-## 22. Résumé final
+## 23. Résumé final
 
 Ce système ne cherche pas à remplacer un snapshot provider comme OVH Premium Backup.
 
@@ -1448,16 +1633,17 @@ multi-NAS
 configuration par wizard
 Docker-aware
 DB-aware
+CIS-aware
 site-content-aware
 audit de couverture
 rapport email
-restore test
+restore test non destructif
 ```
 
 La couverture attendue pour un serveur Docker avec CIS et PostgreSQL est :
 
 ```text
-OVH Backup 7j
+Backup provider 7j
   → rollback rapide.
 
 Restic vers NAS
@@ -1467,11 +1653,11 @@ Dumps DB
   → bases applicatives + globals PostgreSQL.
 
 CIS
-  → pages en DB ou fichiers, uploads, médias, assets.
+  → pages en DB ou fichiers, uploads, médias, assets, backend, frontend.
 
 Coverage audit
   → signale ce qui manque.
 
 Restore test
-  → vérifie que la restauration fonctionne.
+  → vérifie que les backups sont exploitables sans toucher à la production.
 ```
