@@ -13,6 +13,7 @@ Ordre recommandé :
 06_PR07_RESTIC_REPOSITORIES.md
 07_PR08_BACKUP_MULTI_TARGET.md
 08_PR09_RETENTION_PRUNE.md
+09_PR10_RESTORE_TEST.md
 ```
 
 Règles d'utilisation :
