@@ -1,0 +1,39 @@
+CONFIG_VERSION="1"
+GENERATED_BY="server-backup"
+GENERATED_AT="example"
+
+PROFILE_NAME="system-filesystem"
+PROFILE_TYPE="system-filesystem"
+MISSING_PATH_BEHAVIOR="warning"
+
+BACKUP_PATHS=(
+  "/etc"
+  "/root"
+  "/home"
+  "/srv"
+  "/opt"
+  "/usr/local"
+  "/var/spool/cron"
+  "/var/lib/server-backup/state"
+)
+
+EXCLUDES=(
+  "/proc"
+  "/sys"
+  "/dev"
+  "/run"
+  "/tmp"
+  "/var/tmp"
+  "/mnt"
+  "/media"
+  "/lost+found"
+  "/var/cache"
+  "/var/log/*.log"
+  "/var/lib/docker/overlay2"
+  "/var/lib/docker/image"
+  "/var/lib/docker/containers/*/*.log"
+  "/etc/server-backup/secrets"
+  "**/.cache"
+  "**/cache"
+  "**/tmp"
+)

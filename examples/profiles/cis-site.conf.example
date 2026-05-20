@@ -1,0 +1,37 @@
+CONFIG_VERSION="1"
+GENERATED_BY="server-backup"
+GENERATED_AT="example"
+
+PROFILE_NAME="cis-site"
+PROFILE_TYPE="cis-site"
+APP_KIND="cis-site"
+WEB_CONTENT_CRITICAL="true"
+DOCKER_INVENTORY="true"
+MISSING_PATH_BEHAVIOR="warning"
+
+BACKUP_PATHS=(
+  "/srv/example-cis"
+  "/srv/example-cis/frontend"
+  "/srv/example-cis/backend"
+  "/srv/example-cis/backend/alembic"
+  "/var/lib/server-backup/state"
+)
+
+EXCLUDES=(
+  "**/.cache"
+  "**/cache"
+  "**/tmp"
+  "**/__pycache__"
+  "**/node_modules"
+  "**/.next/cache"
+  "**/logs/*.log"
+)
+
+CONTENT_CLASSIFICATION=(
+  "db:postgresql:<database-placeholder>:site_pages:builder-pages"
+  "files:/srv/example-cis/frontend:frontend-renderer-and-routes"
+  "files:/srv/example-cis/backend:api-models-and-migrations"
+)
+
+# DATABASE_DUMPS will be configured by:
+# sudo server-backup db add

@@ -1,0 +1,28 @@
+CONFIG_VERSION="1"
+GENERATED_BY="server-backup"
+GENERATED_AT="example"
+
+PROFILE_NAME="docker-host"
+PROFILE_TYPE="docker-host"
+MISSING_PATH_BEHAVIOR="warning"
+
+BACKUP_PATHS=(
+  "/etc"
+  "/srv"
+  "/opt"
+  "/var/lib/server-backup/state"
+)
+
+EXCLUDES=(
+  "/etc/server-backup/secrets"
+  "/var/lib/docker/overlay2"
+  "/var/lib/docker/image"
+  "/var/lib/docker/containers/*/*.log"
+  "**/.cache"
+  "**/cache"
+  "**/tmp"
+  "**/__pycache__"
+  "**/node_modules"
+)
+
+DOCKER_INVENTORY="true"

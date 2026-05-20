@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PYTHONPATH="/usr/local/lib/server-backup${PYTHONPATH:+:${PYTHONPATH}}"
+export PYTHONPATH
+
+exec python3 -m server_backup.cli "$@"

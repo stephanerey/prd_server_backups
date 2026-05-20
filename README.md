@@ -13,6 +13,35 @@ Le but est de permettre à Codex d'implémenter un template réutilisable sur pl
 - tests de restauration non destructifs ;
 - rapports email après chaque backup.
 
+Les rapports `backup`, `prune` et `restore test` peuvent maintenant être envoyés
+par `sendmail` ou `mail` si un MTA local est déjà fonctionnel sur le serveur.
+La configuration SMTP elle-même reste explicitement hors scope de ce dépôt.
+
+Le système inclut aussi un `coverage audit` local pour détecter des oublis
+évidents de périmètre de sauvegarde sans contacter le NAS ni lancer `restic`.
+
+## Déploiement validé
+
+Le flux complet validé sur le VPS `mes-fragrances` est documenté ici :
+
+- [Deployment runbook](/home/eva/prd_server_backups/docs/DEPLOYMENT_RUNBOOK.md)
+- [NAS OMV + WireGuard runbook](/home/eva/prd_server_backups/docs/NAS_OMV_WIREGUARD_RUNBOOK.md)
+- [Postfix OVH relay](/home/eva/prd_server_backups/docs/POSTFIX_OVH_RELAY.md)
+- [Operations runbook](/home/eva/prd_server_backups/docs/OPERATIONS_RUNBOOK.md)
+- [Final validation](/home/eva/prd_server_backups/docs/FINAL_VALIDATION.md)
+- [Release checklist](/home/eva/prd_server_backups/docs/RELEASE_CHECKLIST.md)
+- [Installation checklist](/home/eva/prd_server_backups/docs/INSTALLATION_CHECKLIST.md)
+
+Ordre recommandé :
+
+1. installer le socle et lancer `server-backup setup`
+2. préparer NAS et WireGuard
+3. créer la target SFTP puis initialiser le dépôt `restic`
+4. créer les profiles et les dumps DB
+5. lancer `coverage audit`, puis le premier backup, prune et restore test
+6. lancer la validation finale v1.0
+7. tester les emails puis activer le timer systemd
+
 > État du dépôt : ce dépôt est le PRD. Il ne contient pas encore l'implémentation finale. Codex doit lire `PRD.md` puis les addendums, et implémenter les PR dans l'ordre.
 
 ---
