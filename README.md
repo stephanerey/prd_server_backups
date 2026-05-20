@@ -43,7 +43,7 @@ Linux host
 ## Quick Install
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/stephanerey/prd_server_backups.git
 cd prd_server_backups
 sudo ./scripts/install.sh
 sudo server-backup setup
