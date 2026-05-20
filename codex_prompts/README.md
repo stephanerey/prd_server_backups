@@ -18,6 +18,7 @@ Ordre recommandé :
 10_PR11_EMAIL_REPORTS.md
 11_PR12_COVERAGE_AUDIT.md
 12_PR13_DB_WIZARD_DUMPS.md
+13_PR14_DOCKER_PROFILE_COVERAGE.md
 ```
 
 Règles d'utilisation :
