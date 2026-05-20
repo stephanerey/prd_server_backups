@@ -74,6 +74,6 @@ Le restore kit doit exister dans au moins un emplacement externe, par exemple :
 
 ## Références utiles
 
-- [DEPLOYMENT_RUNBOOK.md](/home/eva/prd_server_backups/docs/DEPLOYMENT_RUNBOOK.md)
-- [OPERATIONS_RUNBOOK.md](/home/eva/prd_server_backups/docs/OPERATIONS_RUNBOOK.md)
-- [RESTORE_TEST.md](/home/eva/prd_server_backups/docs/RESTORE_TEST.md)
+- [DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md)
+- [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md)
+- [RESTORE_TEST.md](RESTORE_TEST.md)

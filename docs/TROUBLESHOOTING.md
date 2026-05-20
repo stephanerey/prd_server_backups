@@ -149,7 +149,7 @@ Correction :
 - configurer Postfix avec un relay SMTP, par exemple OVH
 
 Voir :
-[POSTFIX_OVH_RELAY.md](/home/eva/prd_server_backups/docs/POSTFIX_OVH_RELAY.md)
+[POSTFIX_OVH_RELAY.md](POSTFIX_OVH_RELAY.md)
 
 ## Postfix relayhost OVH
 

@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# Local / runtime
+.env
+*.env.local
+*.log
+
+# Secrets
+secrets/
+*.key
+*.pem
+id_ed25519*
+restic-password
+sasl_passwd
+wg0.conf
+
+# Installed/runtime paths should never be committed
+etc/server-backup/
+var/lib/server-backup/
+var/cache/restic/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

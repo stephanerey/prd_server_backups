@@ -6,13 +6,15 @@ Ce document reprend la procédure validée pour préparer un NAS OMV ou un NAS
 équivalent comme cible SFTP pour `server-backup`, avec WireGuard entre le VPS
 source et le NAS.
 
-Exemples donnés :
+## Exemple réel validé
+
+Les valeurs ci-dessous proviennent d'un déploiement validé. Elles restent des
+exemples opérateur et ne doivent jamais être copiées comme secrets ou valeurs
+par défaut.
 
 - utilisateur NAS : `backup_mesfragrances`
 - groupe SSH OMV : `_ssh`
 - target `server-backup` : `nas-steph`
-
-Ces exemples restent génériques. Ne jamais recopier de secret réel.
 
 ## 1. Préparer l'utilisateur SFTP côté NAS
 
@@ -132,7 +134,7 @@ Dans `server-backup`, privilégier l'IP WireGuard du NAS comme `SSH_HOSTNAME`.
 Exemple :
 
 ```text
-SSH_HOSTNAME="10.192.1.254"
+SSH_HOSTNAME="<wireguard-nas-ip>"
 ```
 
 Avantages :
@@ -178,4 +180,4 @@ Avant de passer aux profiles et aux backups :
 - `target test` OK
 
 La suite du flux est dans
-[DEPLOYMENT_RUNBOOK.md](/home/eva/prd_server_backups/docs/DEPLOYMENT_RUNBOOK.md).
+[DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md).

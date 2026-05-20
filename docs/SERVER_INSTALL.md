@@ -47,7 +47,8 @@ It also installs:
 
 The installer is idempotent:
 
-- existing `backup.conf` is preserved
+- `/etc/server-backup/backup.conf.example` is installed if missing
+- an existing live `/etc/server-backup/backup.conf` is preserved
 - existing secrets are preserved
 - existing SSH keys are preserved
 - existing target files are preserved
@@ -86,7 +87,8 @@ The wizard currently configures only the global host-level settings:
 - optional restic password generation
 - optional timer enablement
 
-The wizard writes `/etc/server-backup/backup.conf` in `0600 root:root`.
+The installer only lays down `/etc/server-backup/backup.conf.example`.
+The wizard then writes the live `/etc/server-backup/backup.conf` in `0600 root:root`.
 
 If requested, it can also create `/etc/server-backup/secrets/restic-password` in `0600 root:root`.
 

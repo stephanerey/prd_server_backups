@@ -81,7 +81,7 @@ Préparer le NAS avant toute création de target :
 - vérifier que l'utilisateur peut atteindre le chemin du dépôt
 
 Pour OMV + WireGuard, suivre aussi
-[NAS_OMV_WIREGUARD_RUNBOOK.md](/home/eva/prd_server_backups/docs/NAS_OMV_WIREGUARD_RUNBOOK.md).
+[NAS_OMV_WIREGUARD_RUNBOOK.md](NAS_OMV_WIREGUARD_RUNBOOK.md).
 
 ## Préparation VPN WireGuard
 
@@ -365,7 +365,7 @@ sudo server-backup backup run --dry-run --target <target>
 ```
 
 Pour un relais Postfix via OVH, voir
-[POSTFIX_OVH_RELAY.md](/home/eva/prd_server_backups/docs/POSTFIX_OVH_RELAY.md).
+[POSTFIX_OVH_RELAY.md](POSTFIX_OVH_RELAY.md).
 
 ## Activation timer systemd
 
@@ -410,12 +410,12 @@ sudo server-backup restore test --target <target>
 ```
 
 Pour l'exploitation détaillée, voir
-[OPERATIONS_RUNBOOK.md](/home/eva/prd_server_backups/docs/OPERATIONS_RUNBOOK.md).
+[OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md).
 
 ## Dépannage
 
 Incidents fréquents documentés dans
-[TROUBLESHOOTING.md](/home/eva/prd_server_backups/docs/TROUBLESHOOTING.md) :
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md) :
 
 - SSH/SFTP NAS
 - WireGuard
@@ -442,7 +442,7 @@ Avant mise en production récurrente :
 - timer activé seulement après tout le reste
 
 Checklist concise :
-[INSTALLATION_CHECKLIST.md](/home/eva/prd_server_backups/docs/INSTALLATION_CHECKLIST.md)
+[INSTALLATION_CHECKLIST.md](INSTALLATION_CHECKLIST.md)
 
 Validation finale v1.0 :
-[FINAL_VALIDATION.md](/home/eva/prd_server_backups/docs/FINAL_VALIDATION.md)
+[FINAL_VALIDATION.md](FINAL_VALIDATION.md)

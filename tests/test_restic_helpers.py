@@ -139,7 +139,8 @@ class ResticHelpersTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             lock_path = Path(tmpdir) / "repo.lock"
             env = os.environ.copy()
-            env["PYTHONPATH"] = f"/home/eva/prd_server_backups{os.pathsep}{env.get('PYTHONPATH', '')}".rstrip(os.pathsep)
+            repo_root = Path(__file__).resolve().parents[1]
+            env["PYTHONPATH"] = f"{repo_root}{os.pathsep}{env.get('PYTHONPATH', '')}".rstrip(os.pathsep)
             script = """
 from server_backup.restic import restic_repo_lock
 import sys

@@ -201,7 +201,9 @@ main() {
   done
 
   copy_if_missing "$repo_root/examples/backup.conf.example" "/etc/server-backup/backup.conf.example" 0600
-  copy_if_missing "$repo_root/examples/backup.conf.example" "/etc/server-backup/backup.conf" 0600
+  if [[ ! -e /etc/server-backup/backup.conf ]]; then
+    log "No active /etc/server-backup/backup.conf was created automatically. Run: sudo server-backup setup"
+  fi
   copy_if_missing "$repo_root/examples/targets/sftp.env.example" "/etc/server-backup/targets.d/sftp.env.example" 0600
   copy_if_missing "$repo_root/examples/profiles/docker-host.conf.example" "/etc/server-backup/profiles.d/docker-host.conf.example" 0600
   copy_if_missing "$repo_root/examples/profiles/cis-site.conf.example" "/etc/server-backup/profiles.d/cis-site.conf.example" 0600
@@ -227,13 +229,14 @@ main() {
   cat <<'EOF'
 
 Next steps:
-  1. Run: sudo server-backup setup
-  2. Run: sudo server-backup target add
-  3. Run: sudo server-backup profile add
-  4. Review /etc/server-backup/profiles.d/*.example
-  5. Run: sudo server-backup health
-  6. Run: sudo systemctl enable --now server-backup.timer
-  7. Run: sudo systemctl list-timers | grep server-backup
+  1. Review: /etc/server-backup/backup.conf.example
+  2. Run: sudo server-backup setup
+  3. Run: sudo server-backup target add
+  4. Run: sudo server-backup profile add
+  5. Review: /etc/server-backup/profiles.d/*.example
+  6. Run: sudo server-backup health
+  7. Run: sudo systemctl enable --now server-backup.timer
+  8. Run: sudo systemctl list-timers | grep server-backup
 EOF
 }
 

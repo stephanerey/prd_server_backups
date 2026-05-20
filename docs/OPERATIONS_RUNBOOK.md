@@ -192,4 +192,4 @@ Et les rapports correspondants dans :
   validation opérateur
 
 Politique recommandée :
-[SCHEDULING_POLICY.md](/home/eva/prd_server_backups/docs/SCHEDULING_POLICY.md)
+[SCHEDULING_POLICY.md](SCHEDULING_POLICY.md)

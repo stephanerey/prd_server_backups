@@ -1,8 +1,21 @@
-# Prompts Codex
+# Codex Prompts History
 
-Ce dossier contient les prompts prêts à copier dans Codex pour implémenter le projet `server-backup` PR par PR.
+This directory keeps the original Codex prompts that were used to implement
+`server-backup` PR by PR.
 
-Ordre recommandé :
+These files are preserved for:
+
+- maintenance history
+- implementation traceability
+- future audits of design and delivery decisions
+
+They are **not** required for a normal installation or for day-to-day
+operations. A new user should install the code and follow the runbooks under
+`../docs/`, not replay the prompts.
+
+Historical PRD source documents are now stored under `../prd/`.
+
+Implementation order that was used historically:
 
 ```text
 01_PR01_PR02_PR27_INITIAL_SETUP.md
@@ -24,14 +37,3 @@ Ordre recommandé :
 15_PR17_FINAL_VALIDATION_RELEASE.md
 16_PR18_REPOSITORY_CLEANUP_V1.md
 ```
-
-Règles d'utilisation :
-
-- donner un seul prompt à la fois à Codex ;
-- ne pas demander plusieurs PR dans une seule passe ;
-- relire, tester et merger chaque PR avant de passer à la suivante ;
-- conserver le backend MVP en SFTP uniquement ;
-- conserver l'architecture host-level : `server-backup` tourne sur l'hôte Linux, pas dans Docker ;
-- ne jamais commiter de secrets, clés privées ou mots de passe.
-
-Chaque prompt rappelle le contexte, les contraintes, les livrables, les critères d'acceptation et les tests à exécuter.

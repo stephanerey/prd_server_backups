@@ -19,7 +19,7 @@ sudo server-backup backup run
 Limit the run to one target:
 
 ```bash
-sudo server-backup backup run --target nas-steph
+sudo server-backup backup run --target <target>
 ```
 
 Limit the run to one profile:
@@ -31,7 +31,7 @@ sudo server-backup backup run --profile system-filesystem
 Limit the run to one target and one profile:
 
 ```bash
-sudo server-backup backup run --target nas-steph --profile system-filesystem
+sudo server-backup backup run --target <target> --profile system-filesystem
 ```
 
 ## Behavior
